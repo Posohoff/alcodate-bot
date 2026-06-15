@@ -71,9 +71,10 @@ def handle_text(message):
 
     holidays = get_holidays(date)
 
-    text = f"🔎 {message.text}:\n\n" + "\n".join("• " + h for h in holidays)
-    bot.send_message(message.chat.id, text)
-
+    response = f"🔎 {message.text}:\n\n" + "\n".join("• " + h for h in holidays)
+    bot.send_message(message.chat.id, response)
+    
+    try:
     except:
         pass
 
