@@ -15,18 +15,25 @@ with open("holidays.json", "r", encoding="utf-8") as f:
 def get_holidays(date_obj):
     key = date_obj.strftime("%d-%m")
 
-    ua = UA_HOLIDAYS.get(key, [])
-    api = get_api_holidays(date_obj)
-    intl = get_international(date_obj)
+    results = []
 
-    print("UA:", ua)
-    print("API:", api)
-    print("INTL:", intl)
+    try:
+        results += UA_HOLIDAYS.get(key, [])
+    except:
+        pass
 
-    results = ua + api + intl
+    try:
+        results += get_api_holidays(date_obj)
+    except:
+        pass
+
+    try:
+        results += get_international(date_obj)
+    except:
+        pass
 
     if not results:
-        results = ["DEBUG: empty result"]
+        results = ["Сьогодні немає офіційних свят, але день нормальний 🍀"]
 
     return results
 
