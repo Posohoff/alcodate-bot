@@ -60,11 +60,9 @@ def handle_text(message):
     text = message.text.strip()
 
     try:
-        # пробуємо 25-12
         date = datetime.strptime(text, "%d-%m")
     except:
         try:
-            # пробуємо 25.12
             date = datetime.strptime(text, "%d.%m")
         except:
             return
