@@ -13,7 +13,7 @@ with open("holidays.json", "r", encoding="utf-8") as f:
 
 # ---------- GET HOLIDAYS ----------
 def get_holidays(date_obj):
-    key = date_obj.strftime("%d-%m")
+    key = date_obj.strftime("%d-%m")  # стабільний формат
     return HOLIDAYS.get(key, ["Свят немає 😢"])
 
 # ---------- MENU ----------
@@ -57,14 +57,24 @@ def callback(call):
 # ---------- TEXT DATE ----------
 @bot.message_handler(func=lambda m: True)
 def handle_text(message):
+    text = message.text.strip()
+
     try:
-        date = datetime.strptime(message.text, "%d-%m")
-        date = date.replace(year=datetime.now().year)
+        # пробуємо 25-12
+        date = datetime.strptime(text, "%d-%m")
+    except:
+        try:
+            # пробуємо 25.12
+            date = datetime.strptime(text, "%d.%m")
+        except:
+            return
 
-        holidays = get_holidays(date)
+    date = date.replace(year=datetime.now().year)
 
-        text = f"🔎 {message.text}:\n\n" + "\n".join("• " + h for h in holidays)
-        bot.send_message(message.chat.id, text)
+    holidays = get_holidays(date)
+
+    text = f"🔎 {message.text}:\n\n" + "\n".join("• " + h for h in holidays)
+    bot.send_message(message.chat.id, text)
 
     except:
         pass
