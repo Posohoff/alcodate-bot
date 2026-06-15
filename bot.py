@@ -20,6 +20,8 @@ def get_api_holidays(date_obj):
         r = requests.get(url, timeout=5)
         data = r.json()
 
+        print("API RESPONSE SAMPLE:", data[:2])  # 👈 ДИАГНОСТИКА
+
         key = date_obj.strftime("%Y-%m-%d")
 
         return [
@@ -27,7 +29,9 @@ def get_api_holidays(date_obj):
             for item in data
             if item["date"] == key
         ]
-    except:
+
+    except Exception as e:
+        print("API ERROR:", e)
         return []
 
 # ---------- INTERNATIONAL DAYS (fallback) ----------
