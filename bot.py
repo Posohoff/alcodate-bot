@@ -1,80 +1,105 @@
 import telebot
 import os
 import json
+import requests
 from datetime import datetime, timedelta
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 TOKEN = os.environ.get("BOT_TOKEN")
 bot = telebot.TeleBot(TOKEN)
 
-# ---------- LOAD JSON ----------
+# ---------- LOCAL UA BASE ----------
 with open("holidays.json", "r", encoding="utf-8") as f:
-    HOLIDAYS = json.load(f)
+    UA_HOLIDAYS = json.load(f)
 
-# ---------- GET HOLIDAYS ----------
+# ---------- API ----------
+def get_api_holidays(date_obj):
+    year = date_obj.year
+    url = f"https://date.nager.at/api/v3/PublicHolidays/{year}/UA"
+
+    try:
+        r = requests.get(url, timeout=5)
+        data = r.json()
+
+        key = date_obj.strftime("%Y-%m-%d")
+
+        return [
+            item["localName"]
+            for item in data
+            if item["date"] == key
+        ]
+    except:
+        return []
+
+# ---------- INTERNATIONAL DAYS (fallback) ----------
+def get_international(date_obj):
+    month_day = date_obj.strftime("%d-%m")
+
+    extra = {
+        "14-02": ["International Book Giving Day 📚"],
+        "21-03": ["International Day of Forests 🌳"],
+        "22-03": ["World Water Day 💧"],
+        "05-06": ["World Environment Day 🌍"],
+        "21-09": ["International Day of Peace 🕊️"],
+        "10-10": ["World Mental Health Day 🧠"]
+    }
+
+    return extra.get(month_day, [])
+
+# ---------- CORE LOGIC ----------
 def get_holidays(date_obj):
-    key = date_obj.strftime("%d-%m")  # стабільний формат
-    return HOLIDAYS.get(key, ["Свят немає 😢"])
+    key = date_obj.strftime("%d-%m")
 
-# ---------- MENU ----------
-def main_menu():
-    markup = InlineKeyboardMarkup()
-    markup.add(InlineKeyboardButton("📅 Сьогодні", callback_data="today"))
-    markup.add(InlineKeyboardButton("📆 Завтра", callback_data="tomorrow"))
-    markup.add(InlineKeyboardButton("🔎 Дата", callback_data="date"))
-    return markup
+    results = []
 
-# ---------- START ----------
+    # 1. UA local JSON
+    results += UA_HOLIDAYS.get(key, [])
+
+    # 2. API holidays
+    results += get_api_holidays(date_obj)
+
+    # 3. international days
+    results += get_international(date_obj)
+
+    if not results:
+        results = ["Сьогодні немає офіційних свят, але день все одно хороший 🍀"]
+
+    return results
+
+# ---------- COMMANDS ----------
 @bot.message_handler(commands=['start'])
-def start(message):
-    bot.send_message(
-        message.chat.id,
-        "Привіт! 🍻\n\nОбери дію:",
-        reply_markup=main_menu()
-    )
+def start(m):
+    bot.send_message(m.chat.id, "Привіт! 🍻 Напиши /today або дату (25-12)")
 
-# ---------- CALLBACK ----------
-@bot.callback_query_handler(func=lambda call: True)
-def callback(call):
+@bot.message_handler(commands=['today'])
+def today(m):
+    date = datetime.now()
+    holidays = get_holidays(date)
 
-    if call.data == "today":
-        date = datetime.now()
-        holidays = get_holidays(date)
+    text = "📅 Сьогодні:\n\n" + "\n".join("• " + h for h in holidays)
+    bot.send_message(m.chat.id, text)
 
-        text = "📅 Сьогодні:\n\n" + "\n".join("• " + h for h in holidays)
-        bot.send_message(call.message.chat.id, text)
+@bot.message_handler(commands=['tomorrow'])
+def tomorrow(m):
+    date = datetime.now() + timedelta(days=1)
+    holidays = get_holidays(date)
 
-    elif call.data == "tomorrow":
-        date = datetime.now() + timedelta(days=1)
-        holidays = get_holidays(date)
-
-        text = "📆 Завтра:\n\n" + "\n".join("• " + h for h in holidays)
-        bot.send_message(call.message.chat.id, text)
-
-    elif call.data == "date":
-        bot.send_message(call.message.chat.id, "Напиши дату у форматі 25-12")
-
-# ---------- TEXT DATE ----------
+    text = "📅 Завтра:\n\n" + "\n".join("• " + h for h in holidays)
+    bot.send_message(m.chat.id, text)
 
 @bot.message_handler(func=lambda m: True)
-def handle_text(message):
-    text = message.text.strip()
+def date_input(m):
+    text = m.text.strip().replace(".", "-")
 
     try:
         date = datetime.strptime(text, "%d-%m")
+        date = date.replace(year=datetime.now().year)
     except:
-        try:
-            date = datetime.strptime(text, "%d.%m")
-        except:
-            return
-
-    date = date.replace(year=datetime.now().year)
+        return
 
     holidays = get_holidays(date)
 
-    response = f"🔎 {message.text}:\n\n" + "\n".join("• " + h for h in holidays)
-    bot.send_message(message.chat.id, response)
+    reply = f"🔎 {text}:\n\n" + "\n".join("• " + h for h in holidays)
+    bot.send_message(m.chat.id, reply)
 
-# ---------- RUN ----------
 print("Bot started...")
 bot.infinity_polling()
