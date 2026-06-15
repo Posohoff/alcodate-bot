@@ -1,31 +1,91 @@
 import telebot
-from datetime import datetime
 import os
+import requests
+from datetime import datetime, timedelta
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 TOKEN = os.environ.get("BOT_TOKEN")
-
 bot = telebot.TeleBot(TOKEN)
 
+UKR_COUNTRY = "UA"
+
+# ---------- API ----------
+def get_holidays(date_obj):
+    year = date_obj.year
+    url = f"https://date.nager.at/api/v3/PublicHolidays/{year}/{UKR_COUNTRY}"
+
+    try:
+        response = requests.get(url)
+        data = response.json()
+
+        day_str = date_obj.strftime("%Y-%m-%d")
+
+        holidays = [item["localName"] for item in data if item["date"] == day_str]
+
+        if not holidays:
+            holidays = ["Свят немає 😢"]
+
+        return holidays
+
+    except:
+        return ["Помилка API"]
+
+# ---------- MENU ----------
+def main_menu():
+    markup = InlineKeyboardMarkup()
+    markup.add(InlineKeyboardButton("📅 Сьогодні", callback_data="today"))
+    markup.add(InlineKeyboardButton("📆 Завтра", callback_data="tomorrow"))
+    markup.add(InlineKeyboardButton("🔎 Обрати дату", callback_data="date"))
+    return markup
+
+# ---------- START ----------
 @bot.message_handler(commands=['start'])
 def start(message):
-    bot.reply_to(
-        message,
-        "Привіт! 🍻\n\nНапиши /today щоб отримати список свят на сьогодні."
+    bot.send_message(
+        message.chat.id,
+        "Привіт! 🍻\n\nОбери дію:",
+        reply_markup=main_menu()
     )
 
-@bot.message_handler(commands=['today'])
-def today(message):
-    today_date = datetime.now().strftime("%d.%m.%Y")
+# ---------- CALLBACK ----------
+@bot.callback_query_handler(func=lambda call: True)
+def callback(call):
 
-    text = f"""
-📅 Сьогодні: {today_date}
+    if call.data == "today":
+        date = datetime.now()
+        holidays = get_holidays(date)
 
-🍺 Тестове свято:
-• День гарного настрою
-• День друзів
-"""
+        text = "📅 Сьогодні:\n\n" + "\n".join("• " + h for h in holidays)
+        bot.send_message(call.message.chat.id, text)
 
-    bot.reply_to(message, text)
+    elif call.data == "tomorrow":
+        date = datetime.now() + timedelta(days=1)
+        holidays = get_holidays(date)
 
+        text = "📆 Завтра:\n\n" + "\n".join("• " + h for h in holidays)
+        bot.send_message(call.message.chat.id, text)
+
+    elif call.data == "date":
+        bot.send_message(
+            call.message.chat.id,
+            "Напиши дату у форматі:\n25.12"
+        )
+
+# ---------- DATE INPUT ----------
+@bot.message_handler(func=lambda m: True)
+def handle_text(message):
+    try:
+        date = datetime.strptime(message.text, "%d.%m")
+        date = date.replace(year=datetime.now().year)
+
+        holidays = get_holidays(date)
+
+        text = f"🔎 {message.text}:\n\n" + "\n".join("• " + h for h in holidays)
+        bot.send_message(message.chat.id, text)
+
+    except:
+        pass
+
+# ---------- RUN ----------
 print("Bot started...")
 bot.infinity_polling()
