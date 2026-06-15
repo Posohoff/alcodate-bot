@@ -1,41 +1,27 @@
 import telebot
 import os
-import requests
+import json
 from datetime import datetime, timedelta
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 TOKEN = os.environ.get("BOT_TOKEN")
 bot = telebot.TeleBot(TOKEN)
 
-UKR_COUNTRY = "UA"
+# ---------- LOAD JSON ----------
+with open("holidays.json", "r", encoding="utf-8") as f:
+    HOLIDAYS = json.load(f)
 
-# ---------- API ----------
+# ---------- GET HOLIDAYS ----------
 def get_holidays(date_obj):
-    year = date_obj.year
-    url = f"https://date.nager.at/api/v3/PublicHolidays/{year}/{UKR_COUNTRY}"
-
-    try:
-        response = requests.get(url)
-        data = response.json()
-
-        day_str = date_obj.strftime("%Y-%m-%d")
-
-        holidays = [item["localName"] for item in data if item["date"] == day_str]
-
-        if not holidays:
-            holidays = ["Свят немає 😢"]
-
-        return holidays
-
-    except:
-        return ["Помилка API"]
+    key = date_obj.strftime("%d-%m")
+    return HOLIDAYS.get(key, ["Свят немає 😢"])
 
 # ---------- MENU ----------
 def main_menu():
     markup = InlineKeyboardMarkup()
     markup.add(InlineKeyboardButton("📅 Сьогодні", callback_data="today"))
     markup.add(InlineKeyboardButton("📆 Завтра", callback_data="tomorrow"))
-    markup.add(InlineKeyboardButton("🔎 Обрати дату", callback_data="date"))
+    markup.add(InlineKeyboardButton("🔎 Дата", callback_data="date"))
     return markup
 
 # ---------- START ----------
@@ -66,16 +52,13 @@ def callback(call):
         bot.send_message(call.message.chat.id, text)
 
     elif call.data == "date":
-        bot.send_message(
-            call.message.chat.id,
-            "Напиши дату у форматі:\n25.12"
-        )
+        bot.send_message(call.message.chat.id, "Напиши дату у форматі 25-12")
 
-# ---------- DATE INPUT ----------
+# ---------- TEXT DATE ----------
 @bot.message_handler(func=lambda m: True)
 def handle_text(message):
     try:
-        date = datetime.strptime(message.text, "%d.%m")
+        date = datetime.strptime(message.text, "%d-%m")
         date = date.replace(year=datetime.now().year)
 
         holidays = get_holidays(date)
