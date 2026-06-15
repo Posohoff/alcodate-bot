@@ -55,6 +55,7 @@ def callback(call):
         bot.send_message(call.message.chat.id, "Напиши дату у форматі 25-12")
 
 # ---------- TEXT DATE ----------
+
 @bot.message_handler(func=lambda m: True)
 def handle_text(message):
     text = message.text.strip()
@@ -73,10 +74,6 @@ def handle_text(message):
 
     response = f"🔎 {message.text}:\n\n" + "\n".join("• " + h for h in holidays)
     bot.send_message(message.chat.id, response)
-    
-    try:
-    except:
-        pass
 
 # ---------- RUN ----------
 print("Bot started...")
