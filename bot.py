@@ -12,27 +12,23 @@ with open("holidays.json", "r", encoding="utf-8") as f:
     UA_HOLIDAYS = json.load(f)
 
 # ---------- API ----------
-def get_api_holidays(date_obj):
-    year = date_obj.year
-    url = f"https://date.nager.at/api/v3/PublicHolidays/{year}/UA"
+def get_holidays(date_obj):
+    key = date_obj.strftime("%d-%m")
 
-    try:
-        r = requests.get(url, timeout=5)
-        data = r.json()
+    ua = UA_HOLIDAYS.get(key, [])
+    api = get_api_holidays(date_obj)
+    intl = get_international(date_obj)
 
-        print("API RESPONSE SAMPLE:", data[:2])  # 👈 ДИАГНОСТИКА
+    print("UA:", ua)
+    print("API:", api)
+    print("INTL:", intl)
 
-        key = date_obj.strftime("%Y-%m-%d")
+    results = ua + api + intl
 
-        return [
-            item["localName"]
-            for item in data
-            if item["date"] == key
-        ]
+    if not results:
+        results = ["DEBUG: empty result"]
 
-    except Exception as e:
-        print("API ERROR:", e)
-        return []
+    return results
 
 # ---------- INTERNATIONAL DAYS (fallback) ----------
 def get_international(date_obj):
